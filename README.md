@@ -2,6 +2,8 @@
 
 Leitor e editor de PDF que roda 100% no navegador: o arquivo não é enviado para nenhum servidor. Funciona offline depois da primeira visita e pode ser instalado como app (PWA).
 
+**Demo:** https://might-dev.github.io/PDF-EDITOR-LEITOR-VOZ/
+
 <!-- Adicione prints na pasta docs/ e descomente:
 ![Tela inicial](docs/tela-inicial.png)
 ![Editando um PDF](docs/edicao.png)
@@ -63,7 +65,7 @@ Os recursos de offline e de instalação exigem `http://` ou `https://` (não fu
 **GitHub Pages**
 1. Envie a pasta para um repositório no GitHub.
 2. Em **Settings → Pages**, escolha a branch `main` e a pasta `/ (root)`.
-3. O site fica em `https://SEU-USUARIO.github.io/NOME-DO-REPOSITORIO/`.
+3. O site fica em `https://SEU-USUARIO.github.io/NOME-DO-REPOSITORIO/` (neste projeto: o link da demo acima).
 
 **Local**
 ```
@@ -71,7 +73,7 @@ python -m http.server 8080
 ```
 e abra `http://localhost:8080`.
 
-Depois de alterar qualquer arquivo, aumente o número da versão em `sw.js` (`pdf-reader-v1` → `v2`) para o navegador atualizar o cache.
+Depois de alterar qualquer arquivo, aumente o número da versão em `sw.js` (hoje `pdf-reader-v2`, depois `v3` e assim por diante) para o navegador atualizar o cache. Se a versão antiga continuar aparecendo, use Ctrl+F5.
 
 ## Limitações
 - Não edita o texto original do PDF: adiciona novas marcações por cima
@@ -81,6 +83,9 @@ Depois de alterar qualquer arquivo, aumente o número da versão em `sw.js` (`pd
 - O OCR depende da qualidade da imagem e é lento em PDFs grandes
 - Login e sincronização entre aparelhos: indisponíveis no momento (favoritos e histórico ficam só no navegador)
 - A fonte Inter é carregada do Google Fonts; sem internet o site usa a fonte padrão do sistema
+- Se a pasta `vendor/` não for enviada junto, o site busca as bibliotecas pela internet (plano B), e aí o modo offline não funciona
 
 ## Licença
 MIT, veja [LICENSE](LICENSE).
+
+Feito por [Marlon (Might-DEV)](https://github.com/Might-DEV).
