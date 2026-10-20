@@ -57,7 +57,21 @@ pdf-reader/
 HTML, CSS e JavaScript puro, mais:
 [pdf.js](https://mozilla.github.io/pdf.js/) (visualização), [pdf-lib](https://pdf-lib.js.org/) (edição) e [tesseract.js](https://tesseract.projectnaptha.com/) (OCR). Elas ficam na pasta `vendor/`, com as respectivas licenças em `vendor/licenses/`.
 
+## Como usar
+Os recursos de offline e de instalação exigem `http://` ou `https://` (não funcionam abrindo o arquivo direto com `file://`).
 
+**GitHub Pages**
+1. Envie a pasta para um repositório no GitHub.
+2. Em **Settings → Pages**, escolha a branch `main` e a pasta `/ (root)`.
+3. O site fica em `https://SEU-USUARIO.github.io/NOME-DO-REPOSITORIO/`.
+
+**Local**
+```
+python -m http.server 8080
+```
+e abra `http://localhost:8080`.
+
+Depois de alterar qualquer arquivo, aumente o número da versão em `sw.js` (`pdf-reader-v1` → `v2`) para o navegador atualizar o cache.
 
 ## Limitações
 - Não edita o texto original do PDF: adiciona novas marcações por cima
