@@ -64,13 +64,12 @@ async function openFile(f){
   if(!f) return;
   if(ocrBusy) return toast("Aguarde o OCR terminar ou cancele.");
   if(f.type!=="application/pdf"&&!/\.pdf$/i.test(f.name)) return toast("Escolha um arquivo PDF.");
-  if(f.size>50*1048576) return toast("O arquivo passa de 50MB.");
   if(!pdfjs) return toast("Não foi possível carregar o leitor. Verifique a internet.");
   stopSpeech();toast("Abrindo…");
   try{
     var buf=await f.arrayBuffer();
-    bytes=new Uint8Array(buf);orig=bytes;anns={};imgs={};undos=[];forceTool("");
-    doc=await pdfjs.getDocument({data:bytes.slice()}).promise;
+    var nextBytes=new Uint8Array(buf),nextDoc=await pdfjs.getDocument({data:nextBytes.slice()}).promise;
+    bytes=nextBytes;orig=bytes;anns={};imgs={};undos=[];forceTool("");doc=nextDoc;
     resetSearch();indexText();
     file=f;if(blobUrl) URL.revokeObjectURL(blobUrl);blobUrl=URL.createObjectURL(f);
     total=doc.numPages;cur=1;zoom=1;var sp=ls(posKey(),null);if(sp&&sp.p>1&&sp.p<=total){cur=sp.p;zoom=sp.z||1;setTimeout(function(){toast("Continuando da página "+cur+".")},700)}
@@ -82,7 +81,11 @@ async function openFile(f){
     hist.unshift({name:f.name,size:f.size,pages:total,date:Date.now()});hist=hist.slice(0,30);ss("pr:hist",hist);
     show("home");favUI();buildThumbs();await renderPage();
     $("viewer").scrollIntoView({behavior:"smooth",block:"start"});
-  }catch(err){toast("Não consegui abrir esse PDF.")}
+  }catch(err){
+    if(err&&err.name==="PasswordException") toast("Este PDF está protegido por senha. Remova a proteção para editá-lo.");
+    else if(err&&err.name==="InvalidPDFException") toast("Este PDF está inválido ou corrompido.");
+    else toast("Não consegui abrir esse PDF: "+String(err&&err.message||"arquivo inválido.").slice(0,100));
+  }
 }
 $("pick").onclick=function(){$("file").click()};
 $("file").onchange=function(e){openFile(e.target.files[0]);e.target.value=""};
@@ -137,8 +140,8 @@ $("zo").onclick=function(){setZoom(zoom-.25)};$("zi").onclick=function(){setZoom
 function download(b,name,type){var u=URL.createObjectURL(new Blob([b],{type:type||"application/pdf"})),a=document.createElement("a");a.href=u;a.download=name;a.click();setTimeout(function(){URL.revokeObjectURL(u)},8000)}
 function hasAnns(){return Object.keys(anns).some(function(k){return anns[k].length})}
 function outName(){return(bytes!==orig||hasAnns())?file.name.replace(/\.pdf$/i,"")+"-editado.pdf":file.name}
-function hasRed(){return Object.keys(anns).some(function(k){return anns[k].some(function(a){return a.t==="red"})})}
-async function dl(){if(need()) return;var red=hasRed();toast("Gerando PDF…");try{download(await bake(),outName());if(red) toast("Pronto. As páginas com tarja viraram imagem: o conteúdo coberto foi removido.")}catch(e){toast("Erro ao gerar o PDF.")}}
+function hasRed(){return Object.keys(anns).some(function(k){return anns[k].some(function(a){return a.t==="red"||a.t==="replace"})})}
+async function dl(){if(need()) return;var red=hasRed();toast("Gerando PDF…");try{download(await bake(),outName());if(red) toast("Pronto. As páginas com tarja ou texto substituído foram rasterizadas; o texto antigo foi removido.")}catch(e){toast("Erro ao gerar o PDF: "+String(e&&e.message||"arquivo incompatível.").slice(0,90))}}
 async function pr(){
   if(need()) return;
   try{
@@ -225,7 +228,7 @@ function removeAnn(id){anns[cur]=(anns[cur]||[]).filter(function(a){return a.id!
 function snap(){undos.push({a:JSON.stringify(anns),b:bytes,p:cur});if(undos.length>40) undos.shift()}
 function forceTool(t){
   tool=t;$$("#et [data-tool]").forEach(function(b){b.classList.toggle("on",b.dataset.tool===t)});
-  $("pw").classList.toggle("edit",!!t);$("ov").style.cursor=t==="text"?"text":t==="move"?"default":"crosshair";
+  $("pw").classList.toggle("edit",!!t&&t!=="replace");$("pw").classList.toggle("replace-mode",t==="replace");$("ov").style.cursor=t==="text"?"text":t==="move"?"default":"crosshair";
   if(!userCol&&DEF[t]) $("ecol").value=DEF[t];
   if(t!=="move") sel=null;drawOv();
 }
@@ -236,6 +239,8 @@ function svgOf(a){
     var L=a.txt.split("\n"),mx=Math.max.apply(null,L.map(function(l){return l.length}))||1;
     return"<g"+id+'><rect x="'+a.x+'" y="'+a.y+'" width="'+mx*a.s*.56+'" height="'+L.length*a.s*1.2+'" fill="transparent"/><text font-size="'+a.s+'" fill="'+c+'">'+L.map(function(l,i){return'<tspan x="'+a.x+'" y="'+(a.y+a.s*.9+i*a.s*1.2)+'">'+esc(l)+"</tspan>"}).join("")+"</text></g>";
   }
+  if(a.t==="replace")
+    return"<g"+id+'><rect x="'+a.x+'" y="'+a.y+'" width="'+a.w+'" height="'+a.h+'" fill="'+a.bg+'"/>'+(a.txt?'<text x="'+a.x+'" y="'+(a.y+a.s*.9)+'" font-size="'+a.s+'" fill="'+a.c+'">'+esc(a.txt)+"</text>":"")+"</g>";
   if(a.t==="pen"){
     var p=a.pts.map(function(q){return q[0].toFixed(1)+","+q[1].toFixed(1)}).join(" ");
     return"<g"+id+'><polyline points="'+p+'" fill="none" stroke="transparent" stroke-width="'+Math.max(a.w,12)+'" stroke-linecap="round"/><polyline points="'+p+'" fill="none" stroke="'+c+'" stroke-width="'+a.w+'" stroke-linecap="round" stroke-linejoin="round"/></g>';
@@ -311,6 +316,31 @@ ov.addEventListener("dblclick",function(e){
   if(tool!=="move") return;var t=e.target.closest("[data-id]"),a=t&&find(+t.dataset.id);
   if(a&&a.t==="text") editText(a);
 });
+function replaceSelection(){
+  if(tool!=="replace") return;
+  var selection=window.getSelection();
+  if(!selection||!selection.toString().trim()||!selection.rangeCount) return toast("Selecione o texto que deseja substituir.");
+  var range=selection.getRangeAt(0),node=range.commonAncestorContainer,el=node.nodeType===1?node:node.parentElement;
+  if(!$("tl").contains(el)) return toast("Selecione um texto do PDF.");
+  var rects=Array.prototype.slice.call(range.getClientRects()).filter(function(r){return r.width>0&&r.height>0});
+  var lines=[];
+  rects.forEach(function(r){if(!lines.some(function(y){return Math.abs(y-r.top)<Math.max(3,r.height*.25)})) lines.push(r.top)});
+  if(lines.length>1) return toast("Substitua uma linha de cada vez.");
+  var bounds=range.getBoundingClientRect(),page=$("pw").getBoundingClientRect(),startEl=range.startContainer.nodeType===1?range.startContainer:range.startContainer.parentElement,span=startEl.closest("span");
+  if(!bounds.width||!bounds.height) return toast("Não consegui localizar o texto selecionado.");
+  var fontPx=span?parseFloat(getComputedStyle(span).fontSize):NaN;
+  var size=Math.max(6,Math.min(72,(isFinite(fontPx)?fontPx:bounds.height)/(S*4/3)));
+  var ann={t:"replace",x:(bounds.left-page.left)/S-1,y:(bounds.top-page.top)/S-1,w:bounds.width/S+2,h:bounds.height/S+2,s:size,c:"#111827",bg:"#ffffff"};
+  var original=selection.toString().trim();
+  openModal('<h3>Substituir texto</h3><p class="mut">O texto antigo será removido ao salvar. Use em áreas com fundo branco; a fonte de substituição é Helvetica.</p><label for="rptxt">Novo texto</label><textarea id="rptxt" rows="2" style="width:100%;margin:8px 0 16px;background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:10px"></textarea><div class="mbtn"><button class="btn sm gh" data-m="x">Cancelar</button><button class="btn sm" id="rpap">Substituir</button></div>');
+  $("rptxt").value=original;
+  $("rpap").onclick=function(){
+    ann.txt=$("rptxt").value.replace(/[\r\n]+/g," ").trim();
+    snap();add(ann);selection.removeAllRanges();closeModal();forceTool("");drawOv();
+  };
+  $("rptxt").focus();$("rptxt").select();
+}
+$("tl").addEventListener("pointerup",function(){if(tool==="replace") setTimeout(replaceSelection,0)});
 $("et").addEventListener("click",function(e){var b=e.target.closest("[data-tool]");if(b) setTool(b.dataset.tool)});
 $("ecol").addEventListener("input",function(){userCol=true;var a=sel&&find(sel);if(a&&a.c){a.c=col();drawOv()}});
 $("esz").addEventListener("change",function(){
@@ -353,21 +383,23 @@ function imgPng(src,R){
     im.src=src;
   });
 }
-async function drawAnns(pdf,pg,font,L){
-  var P=PDFLib,R=((pg.getRotation().angle%360)+360)%360,mb=pg.getCropBox(),W=mb.width,H=mb.height;
-  function tp(x,y){return R===90?[mb.x+y,mb.y+x]:R===180?[mb.x+W-x,mb.y+y]:R===270?[mb.x+W-y,mb.y+H-x]:[mb.x+x,mb.y+H-y]}
+async function drawAnns(pdf,pg,font,L,viewWidth,viewHeight){
+  var P=PDFLib,R=((pg.getRotation().angle%360)+360)%360,mb=pg.getCropBox(),W=mb.width,H=mb.height,rotated=R===90||R===270;
+  var sx=(rotated?H:W)/viewWidth,sy=(rotated?W:H)/viewHeight,fontScale=rotated?sx:sy;
+  function tp(x,y){return R===90?[mb.x+y*sy,mb.y+x*sx]:R===180?[mb.x+W-x*sx,mb.y+y*sy]:R===270?[mb.x+W-y*sy,mb.y+H-x*sx]:[mb.x+x*sx,mb.y+H-y*sy]}
   function box(a){var p=tp(a.x,a.y),q=tp(a.x+a.w,a.y+a.h);return{x:Math.min(p[0],q[0]),y:Math.min(p[1],q[1]),width:Math.abs(p[0]-q[0]),height:Math.abs(p[1]-q[1])}}
   for(var i=0;i<L.length;i++){
     var a=L[i],c=a.c?rgbOf(a.c):null;
-    if(a.t==="text"){
+    if(a.t==="text"||a.t==="replace"){
+      if(a.t==="replace"&&!a.txt) continue;
       a.txt.split("\n").forEach(function(l,j){
         var p=tp(a.x,a.y+a.s*.9+j*a.s*1.2);
-        pg.drawText(l.replace(/[^\x20-\x7E\xA0-\xFF]/g,"?"),{x:p[0],y:p[1],size:a.s,font:font,color:c,opacity:a.op==null?1:a.op,rotate:P.degrees(R+(a.rot||0))});
+        pg.drawText(l.replace(/[^\x20-\x7E\xA0-\xFF]/g,"?"),{x:p[0],y:p[1],size:a.s*fontScale,font:font,color:c,opacity:a.op==null?1:a.op,rotate:P.degrees(R+(a.rot||0))});
       });
     }else if(a.t==="pen"){
       for(var j=1;j<a.pts.length;j++){
         var p=tp(a.pts[j-1][0],a.pts[j-1][1]),q=tp(a.pts[j][0],a.pts[j][1]);
-        pg.drawLine({start:{x:p[0],y:p[1]},end:{x:q[0],y:q[1]},thickness:a.w,color:c,lineCap:P.LineCapStyle.Round});
+        pg.drawLine({start:{x:p[0],y:p[1]},end:{x:q[0],y:q[1]},thickness:a.w*fontScale,color:c,lineCap:P.LineCapStyle.Round});
       }
     }else if(a.t==="hl") pg.drawRectangle(Object.assign(box(a),{color:c,opacity:.4,blendMode:P.BlendMode.Multiply}));
     else if(a.t==="rect") pg.drawRectangle(Object.assign(box(a),{color:c}));
@@ -379,15 +411,17 @@ async function drawAnns(pdf,pg,font,L){
   }
 }
 async function redactPage(pdf,i,R){
-  var p=await doc.getPage(i+1),b=p.getViewport({scale:1}),k=Math.min(3,4000/Math.max(b.width,b.height)),vp=p.getViewport({scale:k}),c=document.createElement("canvas");
+  var p=await doc.getPage(i+1),b=p.getViewport({scale:1}),crop=pdf.getPage(i).getCropBox(),rotation=((pdf.getPage(i).getRotation().angle%360)+360)%360;
+  var pageWidth=rotation===90||rotation===270?crop.height:crop.width,pageHeight=rotation===90||rotation===270?crop.width:crop.height;
+  var k=Math.min(3,4000/Math.max(b.width,b.height)),vp=p.getViewport({scale:k}),c=document.createElement("canvas");
   c.width=Math.round(vp.width);c.height=Math.round(vp.height);
   var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);
   await p.render({canvasContext:x,viewport:vp}).promise;
-  x.fillStyle="#000";R.forEach(function(a){x.fillRect(a.x*k,a.y*k,a.w*k,a.h*k)});
+  R.forEach(function(a){x.fillStyle=a.t==="replace"?(a.bg||"#fff"):"#000";x.fillRect(a.x*k,a.y*k,a.w*k,a.h*k)});
   var bin=atob(c.toDataURL("image/jpeg",.92).split(",")[1]),u=new Uint8Array(bin.length);
   for(var n=0;n<bin.length;n++) u[n]=bin.charCodeAt(n);
-  var im=await pdf.embedJpg(u),np=pdf.insertPage(i,[b.width,b.height]);
-  np.drawImage(im,{x:0,y:0,width:b.width,height:b.height});pdf.removePage(i+1);
+  var im=await pdf.embedJpg(u),np=pdf.insertPage(i,[pageWidth,pageHeight]);
+  np.drawImage(im,{x:0,y:0,width:pageWidth,height:pageHeight});pdf.removePage(i+1);
   return np;
 }
 async function bake(){
@@ -395,9 +429,10 @@ async function bake(){
   var pdf=await PDFLib.PDFDocument.load(bytes,{ignoreEncryption:true}),font=await pdf.embedFont(PDFLib.StandardFonts.Helvetica);
   for(var k in anns){
     var L=anns[k];if(!L.length) continue;
-    var pg=pdf.getPage(+k-1),R=L.filter(function(a){return a.t==="red"});
+    var pg=pdf.getPage(+k-1),R=L.filter(function(a){return a.t==="red"||a.t==="replace"});
     if(R.length){pg=await redactPage(pdf,+k-1,R);L=L.filter(function(a){return a.t!=="red"})}
-    await drawAnns(pdf,pg,font,L);
+    var vp=(await doc.getPage(+k)).getViewport({scale:1});
+    await drawAnns(pdf,pg,font,L,vp.width,vp.height);
   }
   return await pdf.save();
 }
@@ -571,8 +606,6 @@ async function extractPages(){
 }
 async function mergeFiles(fs){
   if(!window.PDFLib||!pdfjs) return toast("Não foi possível carregar as bibliotecas. Verifique a internet.");
-  var big=fs.filter(function(f){return f.size>50*1048576});
-  if(big.length) return toast("Cada PDF pode ter no máximo 50MB.");
   toast("Juntando…");
   try{
     var base=doc?await PDFLib.PDFDocument.load(await bake(),{ignoreEncryption:true}):await PDFLib.PDFDocument.create();

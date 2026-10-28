@@ -90,6 +90,7 @@ body:not(.has) #pw{display:none}body.has #demo{display:none}
 .btn.sm{margin:0;padding:9px 16px;font-size:14px;box-shadow:none}
 #ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #pw.edit #ov{pointer-events:auto;touch-action:none}#pw.edit .textLayer{pointer-events:none}
+#pw.replace-mode #ov{pointer-events:none}#pw.replace-mode .textLayer{pointer-events:auto;user-select:text}
 #ov text{font-family:Helvetica,Arial,sans-serif;white-space:pre;user-select:none}
 #ta{display:none;position:absolute;z-index:5;background:rgba(255,255,255,.92);border:1px dashed #2f6bff;outline:0;resize:none;font-family:Helvetica,Arial,sans-serif;line-height:1.2;padding:0;margin:0;min-width:140px;min-height:1.4em;overflow:hidden}
 #toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#1b2a52;color:#fff;border:1px solid #2f6bff;padding:11px 20px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:9}

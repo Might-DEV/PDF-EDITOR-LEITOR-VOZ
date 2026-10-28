@@ -1,6 +1,6 @@
 /* Service worker: deixa o app funcionar offline.
    Ao mudar qualquer arquivo do projeto, aumente o número da versão abaixo. */
-const V = "pdf-reader-v1";
+const V = "pdf-reader-v2";
 const SHELL = ["./", "index.html", "style.css", "app.js", "i18n.js", "manifest.webmanifest",
   "icon-192.png", "icon-512.png", "vendor/pdf.min.js", "vendor/pdf.worker.min.js", "vendor/pdf-lib.min.js"];
 

@@ -12,7 +12,7 @@ Leitor e editor de PDF que roda 100% no navegador: o arquivo não é enviado par
 ## Recursos
 
 **Leitura**
-- Arrastar e soltar ou selecionar PDF (até 50MB), miniaturas, zoom, tela cheia
+- Arrastar e soltar ou selecionar PDFs sem limite fixo de tamanho (o limite prático depende da memória do dispositivo), miniaturas, zoom, tela cheia
 - Lembra a última página e o zoom de cada PDF
 - Busca no PDF (Ctrl+F) sem diferenciar maiúsculas nem acentos
 - Leitura em voz alta com a palavra falada destacada, escolha de voz e velocidade, e botões para pular frases
@@ -21,6 +21,7 @@ Leitor e editor de PDF que roda 100% no navegador: o arquivo não é enviado par
 
 **Edição**
 - Texto, desenho livre, marca-texto, retângulo, imagem, apagar e desfazer
+- Substituição de texto existente em PDFs com texto selecionável: ative “Substituir texto” e selecione uma linha
 - Assinatura desenhada (fica salva no navegador) e carimbos (data de hoje, APROVADO, CÓPIA, etc.)
 - Tarja que oculta o conteúdo de verdade (a página vira imagem, então o texto coberto some do arquivo)
 - Preencher formulários PDF (campos de texto, caixas de seleção e listas)
@@ -76,7 +77,8 @@ e abra `http://localhost:8080`.
 Depois de alterar qualquer arquivo, aumente o número da versão em `sw.js` (hoje `pdf-reader-v2`, depois `v3` e assim por diante) para o navegador atualizar o cache. Se a versão antiga continuar aparecendo, use Ctrl+F5.
 
 ## Limitações
-- Não edita o texto original do PDF: adiciona novas marcações por cima
+- A substituição cobre o texto antigo e escreve o novo; ao salvar, a página alterada vira imagem, então o restante do texto dessa página deixa de ser selecionável. A substituição usa fundo branco e fonte Helvetica; funciona melhor em páginas com fundo branco
+- PDFs escaneados precisam de OCR para selecionar texto; arquivos protegidos por senha, corrompidos ou que excedam a memória disponível no dispositivo não podem ser editados
 - Páginas com tarja ou comprimidas perdem o texto selecionável e os links (viram imagem)
 - Texto adicionado usa a fonte Helvetica (acentos do português funcionam; outros alfabetos viram "?")
 - Reordenar e juntar podem descartar índice e campos de formulário
